@@ -22,6 +22,8 @@ def cli():
 def devops(question):
     """Ask questions about your AWS infrastructure"""
     from agents.devops import run
+    from startup import play_startup
+    play_startup()
     q = " ".join(question) if question else Prompt.ask("[cyan]Ask about your AWS infrastructure[/cyan]")
     with console.status("[cyan]Querying AWS and thinking...[/cyan]"):
         response = run(q)
@@ -57,6 +59,8 @@ def ticket(description):
 def chat():
     """Interactive chat mode — ask anything"""
     from agents.bedrock import ask
+    from startup import play_startup
+    play_startup()
     SYSTEM = "You are a helpful DevOps and software engineering assistant."
     console.print(Panel("[bold cyan]jarvis chat[/bold cyan] — type [bold]exit[/bold] to quit", border_style="cyan"))
     while True:
