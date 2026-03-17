@@ -80,6 +80,8 @@ you  review the code in main.py and tell me if anything looks off
 
 ## AWS Setup
 
+Jarvis uses `boto3` (the AWS Python SDK) to talk to your AWS account. When you run `aws configure`, it saves your credentials to `~/.aws/credentials`. Jarvis reads those automatically at startup — no extra configuration needed. As long as `aws configure` is done, Jarvis is connected to your AWS.
+
 ### 1. Create AWS credentials
 1. Go to AWS Console → IAM → Users → your user → Security Credentials
 2. Click **Create Access Key** → select **CLI** → copy the Access Key ID and Secret Access Key
