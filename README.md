@@ -78,8 +78,26 @@ you  find open PRs in my GitHub repos
 you  review the code in main.py and tell me if anything looks off
 ```
 
-## AWS Bedrock Access
+## AWS Setup
 
-Make sure Claude is enabled in your AWS account:
-1. Go to AWS Console → Bedrock → Model Access
-2. Enable `Claude Haiku` in `us-east-1`
+### 1. Create AWS credentials
+1. Go to AWS Console → IAM → Users → your user → Security Credentials
+2. Click **Create Access Key** → select **CLI** → copy the Access Key ID and Secret Access Key
+
+### 2. Configure the AWS CLI
+```bash
+aws configure
+```
+Enter your:
+- AWS Access Key ID
+- AWS Secret Access Key
+- Default region: `us-east-1`
+- Default output format: `json`
+
+### 3. Enable Bedrock model access
+1. Go to AWS Console → Bedrock → Model Access (make sure you're in `us-east-1`)
+2. Click **Modify model access**
+3. Enable **Claude Haiku**
+4. Submit and wait for access to be granted (usually instant)
+
+Without this step Jarvis will connect but fail when you send a message.
