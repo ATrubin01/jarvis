@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 import sys
 import os
-import time
 import asyncio
+import threading
 import boto3
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 
 console = Console()
+
+# Run all MCP async operations in a background event loop
+_loop = asyncio.new_event_loop()
+threading.Thread(target=_loop.run_forever, daemon=True).start()
+
+def run_async(coro):
+    return asyncio.run_coroutine_threadsafe(coro, _loop).result()
+
 
 SYSTEM_PROMPT = """You are Jarvis, an AI DevOps and software engineering assistant powered by AWS Bedrock.
 
@@ -26,7 +35,7 @@ Be concise, specific, and actionable. Format responses in markdown."""
 
 AWS_TOOL = {
     "name": "get_aws_context",
-    "description": "Fetches real-time data from the AWS account: EC2 instances, S3 buckets, and current month costs. Call this for any AWS infrastructure questions.",
+    "description": "Fetches real-time data from the AWS account: EC2 instances, S3 buckets, and current month costs.",
     "input_schema": {"type": "object", "properties": {}, "required": []}
 }
 
@@ -70,63 +79,47 @@ def get_aws_context() -> str:
     return "\n\n".join(context)
 
 
-async def get_bedrock_response(messages, tools):
-    """Run Bedrock streaming in a thread, return (text, content_blocks, stop_reason)."""
-    from agents.bedrock import stream_response
-
-    def collect():
-        text = ""
-        content_blocks = []
-        stop_reason = "end_turn"
-        for event in stream_response(SYSTEM_PROMPT, messages, tools=tools):
-            if event["type"] == "text":
-                text += event["text"]
-            elif event["type"] == "done":
-                stop_reason = event.get("stop_reason", "end_turn")
-                content_blocks = event.get("content", [])
-        return text, content_blocks, stop_reason
-
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, collect)
-
-
-async def chat_turn(sessions, tools, messages):
+def run_tool(sessions, name, tool_input):
+    if name == "get_aws_context":
+        return get_aws_context()
     from agents.mcp_client import call_tool
+    return run_async(call_tool(sessions, name, tool_input))
+
+
+def chat_turn(sessions, tools, messages):
+    from agents.bedrock import ask_with_tools
 
     while True:
         with console.status("[dim #7C6FAE]thinking...[/dim #7C6FAE]"):
-            text, content_blocks, stop_reason = await get_bedrock_response(messages, tools)
+            result = ask_with_tools(SYSTEM_PROMPT, messages, tools=tools)
 
-        print()
-        console.print("[bold #A78BFA]Jarvis[/bold #A78BFA]", end="  ")
-        for char in text:
-            sys.stdout.write(char)
-            sys.stdout.flush()
-            time.sleep(0.012)
-        print()
+        stop_reason = result.get("stop_reason")
+        content = result.get("content", [])
+        messages.append({"role": "assistant", "content": content})
 
-        messages.append({"role": "assistant", "content": content_blocks})
+        text = next((b["text"] for b in content if b.get("type") == "text"), "")
 
         if stop_reason == "tool_use":
+            if text:
+                console.print(Markdown(text))
             tool_results = []
-            for block in content_blocks:
+            for block in content:
                 if block.get("type") == "tool_use":
                     console.print(f"[dim #7C6FAE]  → {block['name']}...[/dim #7C6FAE]")
-                    if block["name"] == "get_aws_context":
-                        output = get_aws_context()
-                    else:
-                        output = await call_tool(sessions, block["name"], block.get("input", {}))
+                    output = run_tool(sessions, block["name"], block.get("input", {}))
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block["id"],
-                        "content": str(output)
+                        "content": str(output) or "No output returned."
                     })
             messages.append({"role": "user", "content": tool_results})
         else:
+            console.print(f"\n[bold #A78BFA]Jarvis[/bold #A78BFA]")
+            console.print(Markdown(text))
             return
 
 
-async def main():
+def main():
     from startup import play_startup
     from agents.mcp_client import get_server_configs, connect_all, get_all_tools
 
@@ -134,8 +127,8 @@ async def main():
 
     console.print("[dim #7C6FAE]Connecting to MCP servers...[/dim #7C6FAE]")
     configs = get_server_configs()
-    sessions, stack = await connect_all(configs)
-    mcp_tools = await get_all_tools(sessions)
+    sessions, stack = run_async(connect_all(configs))
+    mcp_tools = run_async(get_all_tools(sessions))
 
     all_tools = mcp_tools + [AWS_TOOL]
     connected = ", ".join(sessions.keys()) if sessions else "none"
@@ -150,18 +143,26 @@ async def main():
 
     messages = []
 
-    try:
-        while True:
-            sys.stdout.write("\n\033[38;2;167;139;250myou\033[0m  ")
-            sys.stdout.flush()
-            user_input = await asyncio.to_thread(input, "")
-            if user_input.lower() in ("exit", "quit"):
-                break
-            messages.append({"role": "user", "content": user_input})
-            await chat_turn(sessions, all_tools, messages)
-    finally:
-        await stack.__aexit__(None, None, None)
+    while True:
+        try:
+            user_input = input("\n\033[38;2;167;139;250myou\033[0m  ").strip()
+        except KeyboardInterrupt:
+            print()
+            break
+        if not user_input:
+            continue
+        if user_input.lower() in ("exit", "quit"):
+            break
+        messages.append({"role": "user", "content": user_input})
+        try:
+            chat_turn(sessions, all_tools, messages)
+        except KeyboardInterrupt:
+            print("\n[cancelled]")
+            # Remove the unanswered message so conversation stays clean
+            messages.pop()
+            continue
+    sys.exit(0)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

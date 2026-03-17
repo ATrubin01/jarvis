@@ -58,7 +58,7 @@ Jarvis automatically connects to two MCP servers on startup:
 | Server | What it gives Jarvis access to |
 |--------|-------------------------------|
 | `@modelcontextprotocol/server-github` | Your GitHub repos, PRs, issues, code |
-| `@modelcontextprotocol/server-filesystem` | Your local `~/Documents/Projects` directory |
+| `@modelcontextprotocol/server-filesystem` | Your entire home directory (`~`) |
 
 These are run via `npx` — no manual installation needed. Your GitHub token (set during setup) is passed automatically.
 

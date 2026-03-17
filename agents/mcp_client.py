@@ -1,8 +1,11 @@
 import asyncio
 import contextlib
 import os
+import io
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+_devnull = open(os.devnull, "w")
 
 
 def get_server_configs():
@@ -22,7 +25,7 @@ def get_server_configs():
     servers.append({
         "name": "filesystem",
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-filesystem", os.path.expanduser("~/Documents/Projects")],
+        "args": ["-y", "@modelcontextprotocol/server-filesystem", os.path.expanduser("~")],
         "env": suppress
     })
 
@@ -39,7 +42,7 @@ async def connect_all(configs):
         try:
             env = {**os.environ, **config.get("env", {})}
             params = StdioServerParameters(command=config["command"], args=config["args"], env=env)
-            read, write = await stack.enter_async_context(stdio_client(params))
+            read, write = await stack.enter_async_context(stdio_client(params, errlog=_devnull))
             session = await stack.enter_async_context(ClientSession(read, write))
             await session.initialize()
             sessions[config["name"]] = session
