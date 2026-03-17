@@ -1,63 +1,57 @@
-# Jarvis 🤖
+# Jarvis
 
-AI-powered DevOps assistant CLI built on AWS Bedrock (Claude). Jarvis connects to your AWS account and helps with infrastructure questions, code reviews, and engineering ticket creation — all from your terminal.
+AI-powered DevOps assistant CLI built on AWS Bedrock (Claude). Connect it to your GitHub repos and local files, ask questions in plain English, and get real answers about your infrastructure and code.
 
-## Commands
+## What It Does
 
-| Command | What it does |
-|---------|-------------|
-| `jarvis devops` | Ask questions about your AWS infrastructure |
-| `jarvis review` | Review code for bugs, security issues, improvements |
-| `jarvis ticket` | Generate structured engineering tickets |
-| `jarvis chat` | Interactive AI chat mode |
-
-## Examples
-
-```bash
-# Ask about your infrastructure
-python main.py devops "what s3 buckets do I have and what are they used for?"
-
-# Review a file
-python main.py review --file src/auth.py
-
-# Create a ticket
-python main.py ticket "add rate limiting to the login endpoint"
-
-# Open chat
-python main.py chat
-```
-
-## How It Works
-
-```
-You → Jarvis CLI → AWS Bedrock (Claude) → Response
-                 ↓
-            AWS APIs (EC2, S3, Cost Explorer)
-```
-
-Jarvis pulls real data from your AWS account and passes it to Claude via Bedrock, so answers are specific to your actual infrastructure — not generic advice.
+- Talks to your AWS account in real time — EC2, S3, costs
+- Reads and searches your local project files
+- Searches GitHub repos, PRs, and issues
+- Answers DevOps and engineering questions conversationally
 
 ## Setup
 
 ```bash
 git clone https://github.com/ATrubin01/jarvis
 cd jarvis
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+./setup.sh
 ```
 
-Make sure AWS credentials are configured:
-```bash
-aws configure
-```
-
-Then run:
-```bash
-python main.py --help
-```
+The setup script handles everything — Python venv, dependencies, and checks for AWS and GitHub credentials.
 
 ## Requirements
+
 - Python 3.9+
-- AWS account with Bedrock access enabled
-- AWS credentials configured (`~/.aws/config`)
+- Node.js (for MCP servers)
+- AWS account with Bedrock access enabled in `us-east-1`
+- AWS credentials configured (`aws configure`)
+- GitHub personal access token (for GitHub integration)
+
+## Running Jarvis
+
+```bash
+jarvis
+```
+
+That's it. Jarvis starts an interactive chat session in your terminal.
+
+## Example Questions
+
+```
+you  what EC2 instances do I have running?
+you  how much have I spent on AWS this month?
+you  search my projects for any Terraform files using S3 backends
+you  find open PRs in my GitHub repos
+you  review the code in main.py and tell me if anything looks off
+```
+
+## How It Works
+
+```
+You → Jarvis → AWS Bedrock (Claude)
+                    ↓
+         MCP Servers (GitHub, Filesystem)
+         AWS APIs (EC2, S3, Cost Explorer)
+```
+
+Jarvis uses MCP (Model Context Protocol) to connect Claude to real tools — so answers are based on your actual repos and infrastructure, not generic advice.
